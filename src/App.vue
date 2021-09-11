@@ -269,6 +269,11 @@
 <script>
 import { subscribeToUpdate, unsubscribeFromUpdate } from "./api";
 
+// TODO
+// [] 1. Подсвечивание инвалидных валют
+// [] 2. Проверка валюты "С" через С -> ВТС -> USD без конфликтов с 1 пунктом
+// [] 3. Возможность получать данные из ws и использование их в других вкладках нашего домена (Shared Worker)
+
 export default {
   name: "App",
   data() {
@@ -304,7 +309,7 @@ export default {
     normalizedGraph() {
       const maxValue = Math.max(...this.graph);
       const minValue = Math.min(...this.graph);
-      if (maxValue == minValue) return 50;
+      if (maxValue == minValue) return this.graph.map(() => 50);
       return this.graph.map(
         (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
@@ -339,6 +344,7 @@ export default {
         .filter((t) => t.name == tickerName)
         .forEach((t) => {
           t.price = price;
+          if (t == this.selectedTicker) this.graph.push(price);
         });
     },
     formatPrice(price) {
@@ -388,7 +394,7 @@ export default {
     paginatedTickers() {
       if (this.paginatedTickers == 0 && this.page > 1) this.page -= 1;
     },
-    input() {
+    ticker() {
       this.ticker = this.ticker.toUpperCase();
     },
     filter() {

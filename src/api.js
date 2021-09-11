@@ -1,39 +1,57 @@
 const API_KEY =
   "54c6ccd58c4c27bbb73c44cce886dcfc6adc6c0c73e3c4ab269594bfa205d55e";
-
+const AGGREGATE_INDEX = "5";
 const tickers = new Map();
+const socket = new WebSocket(
+  `wss://streamer.cryptocompare.com/v2?api_key=${API_KEY}`
+);
+socket.addEventListener("message", (e) => {
+  const {
+    TYPE: type,
+    FROMSYMBOL: currency,
+    PRICE: newPrice,
+  } = JSON.parse(e.data);
+  if (type != AGGREGATE_INDEX || !newPrice) {
+    return;
+  }
 
-export const loadTickers = () => {
-  if (tickers.size === 0) return;
-  fetch(
-    `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${[
-      ...tickers.keys(),
-    ].join(",")}&tsyms=USD&api_key=${API_KEY}`
-  )
-    .then((response) => response.json())
-    .then((rawData) => {
-      const updatedPrices = Object.fromEntries(
-        Object.entries(rawData).map(([key, value]) => [key, value.USD])
-      );
-      console.log(updatedPrices);
-      Object.entries(updatedPrices).forEach(([currency, newPrice]) => {
-        console.log(currency, newPrice);
-        const handlers = tickers.get(currency) ?? [];
-        handlers.forEach((fn) => fn(newPrice));
-      });
-    });
+  const handlers = tickers.get(currency) ?? [];
+  handlers.forEach((fn) => fn(newPrice));
+});
+
+const sendToWS = (message) => {
+  const stringifiedMessage = JSON.stringify(message);
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(stringifiedMessage);
+    return;
+  }
+  socket.addEventListener("open", () => socket.send(stringifiedMessage), {
+    once: true,
+  });
 };
 
 export const subscribeToUpdate = (ticker, cb) => {
   const subscribers = tickers.get(ticker) || [];
 
   tickers.set(ticker, [...subscribers, cb]);
+  subscribeToUpdateWS(ticker);
+};
+
+const unsubscribeFromUpdateWS = (ticker) => {
+  sendToWS({
+    action: "SubRemove",
+    subs: [`5~CCCAGG~${ticker}~USD`],
+  });
+};
+
+const subscribeToUpdateWS = (ticker) => {
+  sendToWS({
+    action: "SubAdd",
+    subs: [`5~CCCAGG~${ticker}~USD`],
+  });
 };
 
 export const unsubscribeFromUpdate = (ticker) => {
   tickers.delete(ticker);
+  unsubscribeFromUpdateWS(ticker);
 };
-
-setInterval(loadTickers, 5000);
-
-window.tickers = tickers;
