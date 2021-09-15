@@ -7,6 +7,7 @@
         >
         <div class="mt-1 relative rounded-md shadow-md">
           <input
+            autocomplete="off"
             @input="input"
             @keydown.enter="add"
             v-model="ticker"
@@ -34,8 +35,10 @@
             "
           >
             <button
+              v-for="(t, idx) in availableTickers"
+              :key="idx"
               @click="
-                ticker = 'BTC';
+                ticker = t;
                 add();
               "
               type="button"
@@ -46,40 +49,14 @@
                 padding: 2px 15px;
               "
             >
-              BTC
-            </button>
-            <button
-              @click="
-                ticker = 'DOGE';
-                add();
-              "
-              type="button"
-              style="
-                background: lightgray;
-                border-radius: 10px;
-                margin: 2px;
-                padding: 2px 15px;
-              "
-            >
-              DOGE
-            </button>
-            <button
-              @click="
-                ticker = 'ETH';
-                add();
-              "
-              type="button"
-              style="
-                background: lightgray;
-                border-radius: 10px;
-                margin: 2px;
-                padding: 2px 15px;
-              "
-            >
-              ETH
+              {{ t }}
             </button>
           </div>
         </div>
+
+        <p class="text-red-500 leading-6 text-sm text-center" v-if="sameTicker">
+          Такой тикер уже добавлен
+        </p>
         <add-ticker-button @click="add" :disabled="disabled" />
       </div>
     </div>
@@ -88,6 +65,7 @@
 
 <script>
 import AddTickerButton from "./AddTickerButton.vue";
+import { getAvailableTickers } from "../api.js";
 
 export default {
   components: {
@@ -100,6 +78,11 @@ export default {
       default: false,
       required: false,
     },
+    tickers: {
+      type: Array,
+      default: new Array(),
+      required: false,
+    },
   },
 
   emits: {
@@ -109,20 +92,31 @@ export default {
   data() {
     return {
       ticker: null,
+      sameTicker: false,
     };
+  },
+
+  computed: {
+    availableTickers() {
+      return getAvailableTickers(this.ticker);
+    },
   },
 
   methods: {
     add() {
       if (!this.ticker) return;
+      if (this.tickers.find((t) => t.name == this.ticker)) {
+        this.sameTicker = true;
+        return;
+      }
+
       this.$emit("add-ticker", this.ticker);
       this.ticker = "";
     },
-  },
 
-  watch: {
-    ticker() {
+    input() {
       this.ticker = this.ticker.toUpperCase();
+      this.sameTicker = false;
     },
   },
 };
